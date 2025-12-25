@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { Terminal, Users, Settings, LogOut, LayoutDashboard } from "lucide-react";
 import { authService, User } from "../services/authService";
 import { Button } from "../components/ui/button";
+import { SmartInput } from "../components/layout/SmartInput";
 
 interface DashboardLayoutProps {
     user: User | null;
@@ -20,13 +21,18 @@ export default function DashboardLayout({ user, onLogout }: DashboardLayoutProps
     return (
         <div className="min-h-screen bg-[#0f172a] text-slate-200 flex flex-col">
             {/* HEADER */}
-            <header className="h-16 border-b border-slate-800 bg-[#0f172a]/90 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-50">
-                <div className="flex items-center gap-2">
+            <header className="h-16 border-b border-slate-800 bg-[#0f172a]/90 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-50 gap-4">
+                <div className="flex items-center gap-2 shrink-0">
                     <Terminal className="w-6 h-6 text-blue-500" />
-                    <span className="font-bold text-lg tracking-tight text-white">z5 Kernel</span>
+                    <span className="font-bold text-lg tracking-tight text-white hidden md:block">z5 Kernel</span>
                 </div>
 
-                <div className="flex items-center gap-4">
+                {/* SMART INPUT (Center Stage) */}
+                <div className="flex-1 max-w-lg flex justify-center">
+                    <SmartInput />
+                </div>
+
+                <div className="flex items-center gap-4 shrink-0">
                     <div className="text-right hidden md:block">
                         <p className="text-sm font-medium text-white">{user?.username}</p>
                         <p className="text-xs text-slate-500 uppercase">{user?.role}</p>

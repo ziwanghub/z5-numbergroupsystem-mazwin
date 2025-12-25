@@ -5,6 +5,8 @@ import DashboardLayout from "./layouts/DashboardLayout";
 import WorkstationPage from "./pages/WorkstationPage";
 import ProfilePage from "./pages/ProfilePage";
 import { authService, User } from "./services/authService";
+import { CalculationProvider } from "./context/CalculationContext";
+import { Toaster } from "sonner";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -54,6 +56,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <Toaster position="top-right" theme="dark" />
       <Routes>
         <Route
           path="/login"
@@ -64,7 +67,10 @@ export default function App() {
           path="/"
           element={
             <ProtectedRoute>
-              <DashboardLayout user={user} onLogout={() => setUser(null)} />
+              {/* Context Provider wraps the layout so Header and Pages share state */}
+              <CalculationProvider>
+                <DashboardLayout user={user} onLogout={() => setUser(null)} />
+              </CalculationProvider>
             </ProtectedRoute>
           }
         >

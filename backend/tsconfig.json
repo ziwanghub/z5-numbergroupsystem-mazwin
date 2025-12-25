@@ -11,6 +11,16 @@
         "strict": true,
         "noImplicitAny": false,
         "esModuleInterop": true,
-        "resolveJsonModule": true
-    }
+        "resolveJsonModule": true,
+        "typeRoots": [
+            "./src/types",
+            "./node_modules/@types"
+        ]
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
 }
