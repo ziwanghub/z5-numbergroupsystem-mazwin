@@ -1,20 +1,22 @@
 import React from 'react';
 
-const Label = React.forwardRef(({ className, ...props }, ref) => {
-    const style = {
-        fontSize: '14px', // text-sm
-        fontWeight: '500', // font-medium
+export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> { }
+
+const Label = React.forwardRef<HTMLLabelElement, LabelProps>(({ className, style, ...props }, ref) => {
+    const defaultStyle: React.CSSProperties = {
+        fontSize: '14px',
+        fontWeight: '500',
         lineHeight: '1',
-        color: '#0f172a', // text-slate-900 (peer-disabled etc ignored for simplicity)
+        color: '#0f172a',
         marginBottom: '6px',
         display: 'block',
-        ...props.style
+        ...style
     };
 
     return (
         <label
             ref={ref}
-            style={style}
+            style={defaultStyle}
             {...props}
         />
     );

@@ -1,47 +1,80 @@
-import { Activity, BookOpen, Layers } from "lucide-react";
+import { Plus, LayoutGrid, RotateCcw } from "lucide-react";
+import { useCalculationContext } from "../../context/CalculationContext";
+import { Button } from "../ui/button";
+import { getLatestFormula } from "../../lib/formula-registry";
 
 export function CommandDeck() {
+    const { addWidget, resetLayout } = useCalculationContext();
+
     return (
         <div className="h-full flex flex-col gap-6 p-1">
-            {/* RULES SECTION */}
-            <div className="space-y-3">
+            {/* WIDGET CONTROLS */}
+            <div className="space-y-4">
                 <h3 className="flex items-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    <BookOpen className="w-4 h-4 mr-2" /> Active Rules
+                    <LayoutGrid className="w-4 h-4 mr-2" /> Add Widget
                 </h3>
-                <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center justify-between text-sm text-slate-300">
-                        <span>Standard Grouping</span>
-                        <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
-                    </div>
-                    <div className="text-xs text-slate-500">Formula v1.2.0 loaded</div>
+
+                <div className="grid grid-cols-1 gap-2">
+                    <Button
+                        variant="outline"
+                        className="justify-start bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300"
+                        onClick={() => addWidget({
+                            title: '2 Digits (Combination)',
+                            formulaId: 'digits-group',
+                            formulaVersion: getLatestFormula('digits-group')?.version || '1.0.0',
+                            params: { size: 2, mode: 'C', allowDouble: false }
+                        })}
+                    >
+                        <Plus className="w-4 h-4 mr-2 text-blue-400" />
+                        2 Digits (Comb)
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        className="justify-start bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300"
+                        onClick={() => addWidget({
+                            title: '3 Digits (Combination)',
+                            formulaId: 'digits-group',
+                            formulaVersion: getLatestFormula('digits-group')?.version || '1.0.0',
+                            params: { size: 3, mode: 'C', allowDouble: false }
+                        })}
+                    >
+                        <Plus className="w-4 h-4 mr-2 text-green-400" />
+                        3 Digits (Comb)
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        className="justify-start bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300"
+                        onClick={() => addWidget({
+                            title: '2 Digits (Permutation)',
+                            formulaId: 'digits-group',
+                            formulaVersion: getLatestFormula('digits-group')?.version || '1.0.0',
+                            params: { size: 2, mode: 'P', allowDouble: false }
+                        })}
+                    >
+                        <Plus className="w-4 h-4 mr-2 text-purple-400" />
+                        2 Digits (Perm)
+                    </Button>
                 </div>
             </div>
 
-            {/* STATS SECTION */}
-            <div className="space-y-3">
-                <h3 className="flex items-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    <Activity className="w-4 h-4 mr-2" /> Session Stats
-                </h3>
-                <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 space-y-3">
-                    <div>
-                        <div className="text-xs text-slate-500 uppercase">Calculations</div>
-                        <div className="text-xl font-mono text-white">0</div>
-                    </div>
-                    <div>
-                        <div className="text-xs text-slate-500 uppercase">Success Rate</div>
-                        <div className="text-xl font-mono text-white">100%</div>
-                    </div>
-                </div>
-            </div>
+            <div className="border-t border-slate-800 my-2"></div>
 
-            {/* LAYERS SECTION */}
-            <div className="space-y-3">
+            {/* WORKSPACE TOOLS */}
+            <div className="space-y-4">
                 <h3 className="flex items-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    <Layers className="w-4 h-4 mr-2" /> Config
+                    Workspace Actions
                 </h3>
-                <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 text-xs text-slate-500">
-                    Preset: Default
-                </div>
+
+                <Button
+                    variant="ghost"
+                    className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                    onClick={resetLayout}
+                >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Reset to Default
+                </Button>
             </div>
         </div>
     );

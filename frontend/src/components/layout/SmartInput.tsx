@@ -9,6 +9,8 @@ export function SmartInput() {
     const { input, setInput, config, predict, isCalculating } = useCalculationContext();
     const [localValue, setLocalValue] = useState(input);
     const inputRef = useRef<HTMLInputElement>(null);
+    const [showPasteAssist, setShowPasteAssist] = useState(false);
+    const [focusedByMouse, setFocusedByMouse] = useState(false);
     const [isGlobalPasteEnabled, setIsGlobalPasteEnabled] = useState(() => {
         const saved = localStorage.getItem('z5_global_paste_mode');
         return saved !== null ? saved === 'true' : true;
@@ -79,6 +81,9 @@ export function SmartInput() {
             });
             return;
         }
+        if (showPasteAssist) {
+            setShowPasteAssist(false);
+        }
         setLocalValue(sanitized);
     };
 
@@ -136,6 +141,19 @@ export function SmartInput() {
         return () => document.removeEventListener('paste', handleGlobalPaste);
     }, [processPaste, isGlobalPasteEnabled]);
 
+    const handlePasteAssistClick = async () => {
+        try {
+            const rawText = await navigator.clipboard.readText();
+            processPaste(rawText, false);
+            setShowPasteAssist(false);
+        } catch (error) {
+            toast.warning("Clipboard Access Blocked", {
+                description: "Unable to read clipboard.",
+                duration: 2000
+            });
+        }
+    };
+
     return (
         <div className="relative w-full max-w-md flex items-center gap-2">
             <div className="relative flex-1">
@@ -152,9 +170,28 @@ export function SmartInput() {
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
                     onPaste={handleLocalPaste}
+                    onMouseDown={() => setFocusedByMouse(true)}
+                    onFocus={() => {
+                        if (focusedByMouse && localValue.length === 0) {
+                            setShowPasteAssist(true);
+                        }
+                    }}
+                    onBlur={() => {
+                        setShowPasteAssist(false);
+                        setFocusedByMouse(false);
+                    }}
                     className="h-10 pl-9 pr-10 bg-slate-900/50 border-slate-700 text-slate-200 placeholder:text-slate-600 focus-visible:ring-blue-500 focus-visible:border-blue-500 rounded-lg text-sm font-mono tracking-widest shadow-inner transition-all hover:bg-slate-900"
                     placeholder="Type or Paste (Ctrl+V)..."
                 />
+                {showPasteAssist && (
+                    <button
+                        type="button"
+                        onClick={handlePasteAssistClick}
+                        className="absolute right-2 -bottom-5 text-[10px] text-slate-400 hover:text-slate-200 transition-colors"
+                    >
+                        Paste from clipboard
+                    </button>
+                )}
             </div>
 
             <Button

@@ -5,3 +5,10 @@ dist/
 build/
 coverage/
 .vscode/
+
+# --- Security & System Files ---
+*.pem
+*.key
+.z-mos
+z-mos
+.DS_Store

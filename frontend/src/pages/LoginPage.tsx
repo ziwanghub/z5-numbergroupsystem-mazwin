@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Terminal, AlertCircle, Loader2 } from "lucide-react";
+import { Terminal, AlertCircle, Loader2, UserPlus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { authService } from "../services/authService";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -9,6 +10,7 @@ interface LoginPageProps {
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
+    const navigate = useNavigate();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -23,6 +25,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             const response = await authService.login(username, password);
             if (response.success) {
                 onLogin(response.user);
+            } else {
+                setError(response.message || "Invalid credentials");
             }
         } catch (err: any) {
             setError(err.message || "Invalid credentials");
@@ -76,9 +80,30 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         </div>
                     </div>
 
-                    <Button type="submit" disabled={isLoading} className="w-full bg-slate-700 hover:bg-slate-600 text-white border border-slate-600">
-                        {isLoading ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : "Login"}
-                    </Button>
+                    <div className="space-y-4">
+                        <Button type="submit" disabled={isLoading} className="w-full bg-slate-700 hover:bg-slate-600 text-white border border-slate-600">
+                            {isLoading ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : "Access Console"}
+                        </Button>
+
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-slate-800"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs">
+                                <span className="bg-[#0f172a] px-2 text-slate-500">OR</span>
+                            </div>
+                        </div>
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => navigate('/register')}
+                            className="w-full text-slate-400 hover:text-white border-slate-700 hover:bg-slate-800"
+                        >
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Initialize Credentials
+                        </Button>
+                    </div>
                 </form>
 
                 <div className="text-center mt-8">

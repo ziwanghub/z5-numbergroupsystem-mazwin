@@ -1,12 +1,16 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import DashboardLayout from "./layouts/DashboardLayout";
 import WorkstationPage from "./pages/WorkstationPage";
 import ProfilePage from "./pages/ProfilePage";
 import { authService, User } from "./services/authService";
 import { CalculationProvider } from "./context/CalculationContext";
 import { Toaster } from "sonner";
+
+const FormulaLibraryPage = lazy(() => import("./pages/FormulaLibraryPage"));
+const RecipeBuilderPage = lazy(() => import("./pages/RecipeBuilderPage"));
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -47,12 +51,15 @@ export default function App() {
   }
 
   // Protected Route Wrapper
-  const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+  const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
     if (!user) {
       return <Navigate to="/login" replace />;
     }
     return children;
   };
+  const isDev = import.meta.env.DEV;
+  const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+  const canAccessFormulaLibrary = isDev || isAdmin;
 
   return (
     <BrowserRouter>
@@ -61,6 +68,10 @@ export default function App() {
         <Route
           path="/login"
           element={user ? <Navigate to="/" replace /> : <LoginPage onLogin={setUser} />}
+        />
+        <Route
+          path="/register"
+          element={user ? <Navigate to="/" replace /> : <RegisterPage />}
         />
 
         <Route
@@ -75,6 +86,25 @@ export default function App() {
           }
         >
           <Route index element={<WorkstationPage />} />
+          <Route
+            path="formula-library"
+            element={
+              canAccessFormulaLibrary ? (
+                <Suspense
+                  fallback={
+                    <div className="text-slate-500 text-sm">Loading Formula Library...</div>
+                  }
+                >
+                  <FormulaLibraryPage />
+                </Suspense>
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route path="recipes" element={
+            canAccessFormulaLibrary ? <Suspense fallback={<div>Loading...</div>}><RecipeBuilderPage /></Suspense> : <Navigate to="/" replace />
+          } />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
