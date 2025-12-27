@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authService } from "../services/authService";
 import { Button } from "../components/ui/button";
@@ -16,13 +16,43 @@ export default function RegisterPage() {
         confirmPassword: ""
     });
 
+    // Reset form on mount to ensure clean slate
+    useEffect(() => {
+        setFormData({
+            displayName: "",
+            username: "",
+            password: "",
+            confirmPassword: ""
+        });
+    }, []);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const [emailStatus, setEmailStatus] = useState<'checking' | 'available' | 'taken' | null>(null);
+
+    const handleEmailBlur = async () => {
+        if (!formData.username) return;
+        setEmailStatus('checking');
+        const res = await authService.checkEmail(formData.username);
+        if (!res.available) {
+            setEmailStatus('taken');
+            toast.error("This email is already registered. Please login or use another.");
+        } else {
+            setEmailStatus('available');
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+
+        if (emailStatus === 'taken') {
+            toast.error("Cannot register with a taken email.");
+            setLoading(false);
+            return;
+        }
 
         // Validation
         if (!formData.displayName || !formData.username || !formData.password) {
@@ -73,7 +103,7 @@ export default function RegisterPage() {
 
                 {/* Form Card */}
                 <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 sm:p-8 backdrop-blur-sm shadow-xl">
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                         <div className="space-y-2">
                             <label className="text-xs font-medium text-slate-300 uppercase">Display Name</label>
                             <Input
@@ -81,6 +111,7 @@ export default function RegisterPage() {
                                 placeholder="e.g. Master Chef"
                                 value={formData.displayName}
                                 onChange={handleChange}
+                                autoComplete="off"
                                 className="bg-slate-950 border-slate-800 focus:border-blue-500 transition-colors"
                             />
                         </div>
@@ -93,8 +124,14 @@ export default function RegisterPage() {
                                 placeholder="chef@example.com"
                                 value={formData.username}
                                 onChange={handleChange}
-                                className="bg-slate-950 border-slate-800 focus:border-blue-500 transition-colors"
+                                onBlur={handleEmailBlur}
+                                autoComplete="off"
+                                className={`bg-slate-950 border-slate-800 focus:border-blue-500 transition-colors ${emailStatus === 'taken' ? 'border-red-500 text-red-400' :
+                                    emailStatus === 'available' ? 'border-green-500/50' : ''
+                                    }`}
                             />
+                            {emailStatus === 'checking' && <p className="text-xs text-blue-400 mt-1">Checking...</p>}
+                            {emailStatus === 'taken' && <p className="text-xs text-red-400 mt-1">Email already registered.</p>}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -106,6 +143,7 @@ export default function RegisterPage() {
                                     placeholder="••••••"
                                     value={formData.password}
                                     onChange={handleChange}
+                                    autoComplete="new-password"
                                     className="bg-slate-950 border-slate-800 focus:border-blue-500 transition-colors"
                                 />
                             </div>
@@ -117,6 +155,7 @@ export default function RegisterPage() {
                                     placeholder="••••••"
                                     value={formData.confirmPassword}
                                     onChange={handleChange}
+                                    autoComplete="new-password"
                                     className="bg-slate-950 border-slate-800 focus:border-blue-500 transition-colors"
                                 />
                             </div>

@@ -1,5 +1,5 @@
 import express from 'express';
-import { register, login, getMe, logout } from '../controllers/authController';
+import { register, login, getMe, logout, checkEmail } from '../controllers/authController';
 import authMiddleware from '../middleware/authMiddleware';
 import checkRole from '../middleware/roleMiddleware';
 
@@ -10,6 +10,8 @@ const router = express.Router();
 // ==========================================
 router.post('/register', register);
 router.post('/login', login);
+
+router.get('/check-email', checkEmail);
 
 // ==========================================
 // 🔐 PROTECTED ROUTES (Login Required)

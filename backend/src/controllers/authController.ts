@@ -62,6 +62,41 @@ export const register = async (req: Request, res: Response) => {
 };
 
 
+// Check Email Availability
+export const checkEmail = async (req: Request, res: Response) => {
+    try {
+        const { email } = req.query;
+
+        if (!email) {
+            res.status(400).json({
+                success: false,
+                message: 'Email is required',
+            });
+            return;
+        }
+
+        const user = await User.findOne({ username: email });
+
+        if (user) {
+            res.status(200).json({
+                available: false
+            });
+        } else {
+            res.status(200).json({
+                available: true
+            });
+        }
+    } catch (err: any) {
+        console.error('CHECK_EMAIL ERROR:', err);
+        res.status(500).json({
+            success: false,
+            error: 'AUTH_INTERNAL_ERROR',
+            message: 'Check email failed',
+        });
+    }
+};
+
+
 // Login Controller
 export const login = async (req: Request, res: Response) => {
     try {

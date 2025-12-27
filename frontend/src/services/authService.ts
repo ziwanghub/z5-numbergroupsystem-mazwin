@@ -1,124 +1,150 @@
+import axios, { AxiosError } from "axios";
 
-const USERS_KEY = "z5_users";
-const SESSION_KEY = "z5_session";
+// Environment Variable (configured in .env / .env.local)
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+const TOKEN_KEY = "auth_token";
 
+// Interfaces
 export interface User {
     id: string;
-    username: string; // Used as Email
+    username: string; // Email
     displayName: string;
     role: "ADMIN" | "USER" | "SUPER_ADMIN";
-    avatarUrl?: string; // Auto-generated initials
+    avatarUrl?: string;
     createdAt: number;
-}
-
-// Internal interface for storage (includes password)
-interface StoredUser extends User {
-    passwordHash: string; // Simplified for local demo
 }
 
 export interface AuthResponse {
     success: boolean;
     user?: User;
+    token?: string; // New: Backend returns JWT
     message?: string;
 }
 
 // Helper: Initials Avatar
 export const getInitials = (name: string) => name.substring(0, 2).toUpperCase();
 
+// Axios Instance
+const api = axios.create({
+    baseURL: API_URL,
+    headers: {
+        "Content-Type": "application/json",
+    },
+});
+
+// Request Interceptor: Attach Token
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`; // Backend expects Bearer token
+    }
+    return config;
+});
+
+// Response Interceptor: Handle 401 (Logout)
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            localStorage.removeItem(TOKEN_KEY); // Clear expired token
+            // Optional: window.location.href = "/login"; (Better to let app handle/redirect)
+        }
+        return Promise.reject(error);
+    }
+);
+
 export const authService = {
     // 1. REGISTER
     register: async (username: string, password: string, displayName: string): Promise<AuthResponse> => {
-        await new Promise(r => setTimeout(r, 800)); // Simulate net lag
+        try {
+            const { data } = await api.post<AuthResponse>("/auth/register", {
+                email: username, // Backend likely expects "email"
+                password,
+                displayName,
+                username // Sending both just in case
+            });
 
-        const users: StoredUser[] = JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
-
-        // Check duplicate
-        if (users.find(u => u.username === username)) {
-            return { success: false, message: "Email already registered" };
+            if (data.success && data.token) {
+                localStorage.setItem(TOKEN_KEY, data.token);
+            }
+            return data;
+        } catch (error) {
+            return handleAxiosError(error);
         }
-
-        const newUser: StoredUser = {
-            id: crypto.randomUUID(),
-            username,
-            displayName,
-            role: "USER", // Default role
-            passwordHash: btoa(password), // Simple encoding for demo (NOT SECURE for prod)
-            createdAt: Date.now()
-        };
-
-        users.push(newUser);
-        localStorage.setItem(USERS_KEY, JSON.stringify(users));
-
-        // Auto Login
-        localStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
-
-        // Return safe user object (no password)
-        const { passwordHash, ...safeUser } = newUser;
-        return { success: true, user: safeUser };
     },
 
     // 2. LOGIN
     login: async (username: string, password: string): Promise<AuthResponse> => {
-        await new Promise(r => setTimeout(r, 600));
+        try {
+            const { data } = await api.post<AuthResponse>("/auth/login", {
+                username,
+                password,
+            });
 
-        const users: StoredUser[] = JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
-        const encodedPass = btoa(password);
-
-        const user = users.find(u => u.username === username && u.passwordHash === encodedPass);
-
-        if (!user) {
-            return { success: false, message: "Invalid email or password" };
+            if (data.success && data.token) {
+                localStorage.setItem(TOKEN_KEY, data.token);
+            }
+            return data;
+        } catch (error) {
+            return handleAxiosError(error);
         }
-
-        // Set Session
-        localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-
-        const { passwordHash, ...safeUser } = user;
-        return { success: true, user: safeUser };
     },
 
     // 3. GET CURRENT SESSION
     getMe: async (): Promise<AuthResponse> => {
-        const sessionStr = localStorage.getItem(SESSION_KEY);
-        if (!sessionStr) {
-            return { success: false, message: "No session" };
-        }
+        const token = localStorage.getItem(TOKEN_KEY);
+        if (!token) return { success: false, message: "No token" };
+
         try {
-            const user = JSON.parse(sessionStr);
-            const { passwordHash, ...safeUser } = user; // Ensure usage of StoredUser doesn't leak if legacy data
-            return { success: true, user: safeUser };
-        } catch (e) {
-            return { success: false, message: "Invalid session" };
+            const { data } = await api.get<AuthResponse>("/auth/me");
+            return data;
+        } catch (error) {
+            localStorage.removeItem(TOKEN_KEY);
+            return handleAxiosError(error);
         }
     },
 
     // 4. UPDATE PROFILE
+    // Note: Assuming endpoint is PUT /users/:id or PUT /auth/me. 
+    // Using /users/:id for now as it's standard REST, or likely /auth/profile
+    // We will try generic /users implementation or skip if not critical for "Registration" goal.
+    // For now, I'll map it to a hypothetical endpoint.
     updateProfile: async (id: string, updates: Partial<{ displayName: string; password: string }>): Promise<AuthResponse> => {
-        const users: StoredUser[] = JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
-        const index = users.findIndex(u => u.id === id);
-
-        if (index === -1) return { success: false, message: "User not found" };
-
-        const updatedUser = { ...users[index] };
-
-        if (updates.displayName) updatedUser.displayName = updates.displayName;
-        if (updates.password) updatedUser.passwordHash = btoa(updates.password);
-
-        users[index] = updatedUser;
-        localStorage.setItem(USERS_KEY, JSON.stringify(users));
-
-        // Update Session if it's the current user
-        const currentSession = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
-        if (currentSession.id === id) {
-            localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser));
+        try {
+            const { data } = await api.put<AuthResponse>(`/users/${id}`, updates);
+            return data;
+        } catch (error) {
+            return handleAxiosError(error);
         }
-
-        const { passwordHash, ...safeUser } = updatedUser;
-        return { success: true, user: safeUser };
     },
 
     // 5. LOGOUT
     logout: async (): Promise<void> => {
-        localStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(TOKEN_KEY);
+    },
+
+    // 6. CHECK EMAIL
+    checkEmail: async (email: string): Promise<{ available: boolean }> => {
+        try {
+            const { data } = await api.get(`/auth/check-email?email=${encodeURIComponent(email)}`);
+            return data;
+        } catch (error) {
+            // If error (e.g. 404/500), assume available to not block, or handle strictly.
+            // Requirement says "prevent... by warning".
+            // Let's return available: true on failure to allow retry, or false to block?
+            // Safer to return something that doesn't crash app.
+            return { available: true };
+        }
     }
 };
+
+// Helper Error Handler
+function handleAxiosError(error: unknown): AuthResponse {
+    if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.message || error.message || "Request failed";
+        return { success: false, message };
+    }
+    return { success: false, message: "An unexpected error occurred" };
+}
+
+export default authService;

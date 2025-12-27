@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Terminal, AlertCircle, Loader2, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../services/authService";
@@ -15,6 +15,13 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+
+    // Force Clean Slate on Mount
+    useEffect(() => {
+        setUsername("");
+        setPassword("");
+        setError("");
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -52,7 +59,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 </div>
 
                 {/* FORM AREA */}
-                <form onSubmit={handleSubmit} className="space-y-6 mt-8">
+                <form onSubmit={handleSubmit} className="space-y-6 mt-8" autoComplete="off">
                     {error && (
                         <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-md flex items-center gap-2">
                             <AlertCircle className="w-4 h-4" /> {error}
@@ -65,6 +72,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                             <Input
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
+                                autoComplete="off" // Explicitly disable
+                                autoFocus // Focus on load
                                 className="bg-slate-900/50 border-slate-700 text-white focus-visible:ring-blue-500"
                             />
                         </div>
@@ -74,6 +83,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                autoComplete="new-password" // "new-password" is stricter than "off" for password fields
                                 className="bg-slate-900/50 border-slate-700 text-white focus-visible:ring-blue-500"
                                 placeholder="••••"
                             />
