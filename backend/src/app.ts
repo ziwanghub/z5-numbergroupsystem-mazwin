@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes';
+import formulaRoutes from './routes/formulaRoutes';
+import recipeRoutes from './routes/recipeRoutes';
 
 const app = express();
 
@@ -30,5 +32,7 @@ app.get('/', (req, res) => {
 
 // Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/formulas', formulaRoutes);
+app.use('/api/recipes', recipeRoutes);
 
 export default app;

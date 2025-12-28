@@ -148,6 +148,12 @@ export const login = async (req: Request, res: Response) => {
             { expiresIn: '24h' }
         );
 
+        // Extract IP & Update User
+        // Note: Safe extraction for Proxy/Local environments
+        const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'UNKNOWN';
+        user.lastLoginIp = ip;
+        await user.save();
+
         res.cookie('auth_token', token, {
             httpOnly: true,
             sameSite: 'lax',

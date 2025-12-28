@@ -26,8 +26,13 @@ app.use((err: any, req: any, res: any, next: any) => {
 // ============================================
 const PORT = process.env.PORT || 5001;
 
+import { seedFormulas } from './utils/seeder';
+
 // Connect to DB first, then start server
-connectDB().then(() => {
+connectDB().then(async () => {
+    // 🌱 SEED FORMULAS
+    await seedFormulas();
+
     app.listen(PORT, () => {
         console.log(`\n🚀 Z-MOS Engine Initialized...`);
         console.log(`📡 Server running on: http://localhost:${PORT}`);

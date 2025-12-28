@@ -24,24 +24,6 @@ export function ResultGrid({ results, densityMode }: ResultGridProps) {
     const highlightTimeoutRef = useRef<number | null>(null);
     const archivedNoticeRef = useRef<Set<string>>(new Set());
 
-    if (widgets.length === 0) {
-        // Empty State: Guide user to add widget or just show empty logic
-        return (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4">
-                <p className="text-sm">Workspace is empty.</p>
-                <p className="text-xs">Use the Command Deck to add widgets.</p>
-            </div>
-        );
-    }
-
-    // If we have widgets but no results (input < 2 digits), show placeholders
-    const displayItems = results.length > 0 ? results : widgets.map(w => ({
-        id: w.id,
-        title: w.title,
-        total: 0,
-        data: []
-    }));
-
     const handleCopy = async (
         panelId: string,
         panelName: string,
@@ -111,8 +93,24 @@ export function ResultGrid({ results, densityMode }: ResultGridProps) {
         });
     }, [results]);
 
+    const isWorkspaceEmpty = widgets.length === 0;
+
+    // If we have widgets but no results (input < 2 digits), show placeholders
+    const displayItems = results.length > 0 ? results : widgets.map(w => ({
+        id: w.id,
+        title: w.title,
+        total: 0,
+        data: []
+    }));
+
     return (
         <div className={`grid grid-cols-1 md:grid-cols-2 ${panelGap}`}>
+            {isWorkspaceEmpty && (
+                <div className="col-span-full flex flex-col items-center justify-center h-full text-slate-500 space-y-4">
+                    <p className="text-sm">Workspace is empty.</p>
+                    <p className="text-xs">Use the Command Deck to add widgets.</p>
+                </div>
+            )}
             {displayItems.map((item) => (
                 <Card
                     key={item.id}

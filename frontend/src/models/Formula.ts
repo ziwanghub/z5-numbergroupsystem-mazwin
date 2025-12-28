@@ -16,7 +16,8 @@ export interface FormulaParamSpec {
 }
 
 export interface FormulaInputSpec {
-    params: Record<string, FormulaParamSpec>;
+    params?: Record<string, FormulaParamSpec>;
+    properties?: Record<string, FormulaParamSpec>;
 }
 
 export interface FormulaOutputSpec {
@@ -38,6 +39,7 @@ export interface FormulaVersion {
     status: FormulaVersionStatus;
     isLocked?: boolean;
     computeKey: string;
+    logic?: string; // Dynamic JS String
     inputSpec: FormulaInputSpec;
     outputSpec: FormulaOutputSpec;
     guardrails: FormulaGuardrails;

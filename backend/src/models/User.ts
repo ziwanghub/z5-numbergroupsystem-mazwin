@@ -26,6 +26,7 @@ export interface IUser extends Document {
     };
     createdAt: Date;
     updatedAt: Date;
+    lastLoginIp?: string;
 }
 
 const UserSchema: Schema = new Schema(
@@ -66,6 +67,10 @@ const UserSchema: Schema = new Schema(
                 type: Date,
                 default: null
             }
+        },
+        lastLoginIp: {
+            type: String,
+            default: null
         }
     },
     {

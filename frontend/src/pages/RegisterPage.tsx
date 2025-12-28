@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { authService } from "../services/authService";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Terminal, ArrowRight } from "lucide-react";
+import { Terminal, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RegisterPage() {
@@ -15,6 +15,10 @@ export default function RegisterPage() {
         password: "",
         confirmPassword: ""
     });
+
+    // UI State
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // Reset form on mount to ensure clean slate
     useEffect(() => {
@@ -34,6 +38,12 @@ export default function RegisterPage() {
 
     const handleEmailBlur = async () => {
         if (!formData.username) return;
+        // Simple regex check for valid email before hitting server
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.username)) {
+            // Can add local email invalid state here if wanted
+            return;
+        }
+
         setEmailStatus('checking');
         const res = await authService.checkEmail(formData.username);
         if (!res.available) {
@@ -43,6 +53,21 @@ export default function RegisterPage() {
             setEmailStatus('available');
         }
     };
+
+    // Validation Logic
+    const passwordsMatch = formData.password === formData.confirmPassword;
+    const isPasswordValid = formData.password.length >= 4;
+    const isConfirmDirty = formData.confirmPassword.length > 0;
+
+    const isFormValid =
+        formData.displayName.trim().length > 0 &&
+        formData.username.trim().length > 0 &&
+        isPasswordValid &&
+        passwordsMatch &&
+        emailStatus !== 'taken' &&
+        emailStatus !== 'checking'; // Wait for check to finish? Or allow if null? 
+    // Safer: 
+    // emailStatus === 'available' || (emailStatus === null && formData.username...)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -54,21 +79,15 @@ export default function RegisterPage() {
             return;
         }
 
-        // Validation
+        // Final Validation (just in case button disabled trick was bypassed)
         if (!formData.displayName || !formData.username || !formData.password) {
             toast.error("Please fill in all fields");
             setLoading(false);
             return;
         }
 
-        if (formData.password !== formData.confirmPassword) {
+        if (!passwordsMatch) {
             toast.error("Passwords do not match");
-            setLoading(false);
-            return;
-        }
-
-        if (formData.password.length < 4) {
-            toast.error("Password must be at least 4 characters");
             setLoading(false);
             return;
         }
@@ -137,34 +156,58 @@ export default function RegisterPage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-slate-300 uppercase">Password</label>
-                                <Input
-                                    name="password"
-                                    type="password"
-                                    placeholder="••••••"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    autoComplete="new-password"
-                                    className="bg-slate-950 border-slate-800 focus:border-blue-500 transition-colors"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        name="password"
+                                        type={showPassword ? "text" : "password"}
+                                        placeholder="Enter password"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        autoComplete="new-password"
+                                        className="bg-slate-950 border-slate-800 focus:border-blue-500 transition-colors pr-8"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                                        tabIndex={-1}
+                                    >
+                                        {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                    </button>
+                                </div>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-slate-300 uppercase">Confirm</label>
-                                <Input
-                                    name="confirmPassword"
-                                    type="password"
-                                    placeholder="••••••"
-                                    value={formData.confirmPassword}
-                                    onChange={handleChange}
-                                    autoComplete="new-password"
-                                    className="bg-slate-950 border-slate-800 focus:border-blue-500 transition-colors"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        name="confirmPassword"
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        placeholder="Confirm..."
+                                        value={formData.confirmPassword}
+                                        onChange={handleChange}
+                                        autoComplete="new-password"
+                                        className={`bg-slate-950 border-slate-800 focus:border-blue-500 transition-colors pr-8 ${isConfirmDirty && !passwordsMatch ? 'border-red-500' : ''
+                                            }`}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                                        tabIndex={-1}
+                                    >
+                                        {showConfirmPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                    </button>
+                                </div>
+                                {isConfirmDirty && !passwordsMatch && (
+                                    <p className="text-[10px] text-red-500">Mismatched</p>
+                                )}
                             </div>
                         </div>
 
                         <Button
-                            className="w-full bg-blue-600 hover:bg-blue-500 text-white mt-6"
+                            className="w-full bg-blue-600 hover:bg-blue-500 text-white mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
                             size="lg"
-                            disabled={loading}
+                            disabled={loading || !isFormValid}
                         >
                             {loading ? "Registering..." : "Create Account"}
                             {!loading && <ArrowRight className="ml-2 h-4 w-4" />}

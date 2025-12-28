@@ -1,8 +1,8 @@
 import axios, { AxiosError } from "axios";
+import { toast } from "sonner"; // Import Toast
 
 // Environment Variable (configured in .env / .env.local)
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
-const TOKEN_KEY = "auth_token";
+const API_URL = "/api/v1";
 
 // Interfaces
 export interface User {
@@ -17,7 +17,6 @@ export interface User {
 export interface AuthResponse {
     success: boolean;
     user?: User;
-    token?: string; // New: Backend returns JWT
     message?: string;
 }
 
@@ -30,15 +29,7 @@ const api = axios.create({
     headers: {
         "Content-Type": "application/json",
     },
-});
-
-// Request Interceptor: Attach Token
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`; // Backend expects Bearer token
-    }
-    return config;
+    withCredentials: true, // Critical: Send/Receive Cookies
 });
 
 // Response Interceptor: Handle 401 (Logout)
@@ -46,8 +37,11 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            localStorage.removeItem(TOKEN_KEY); // Clear expired token
-            // Optional: window.location.href = "/login"; (Better to let app handle/redirect)
+            // Trigger generic session expired toast (debounce if needed, but simple for now)
+            // We check only if it's NOT a login attempt (login 401 is handled by local try/catch with specific msg)
+            if (!error.config.url.includes('/login')) {
+                toast.error("Session expired. Please login again.");
+            }
         }
         return Promise.reject(error);
     }
@@ -63,10 +57,6 @@ export const authService = {
                 displayName,
                 username // Sending both just in case
             });
-
-            if (data.success && data.token) {
-                localStorage.setItem(TOKEN_KEY, data.token);
-            }
             return data;
         } catch (error) {
             return handleAxiosError(error);
@@ -80,10 +70,6 @@ export const authService = {
                 username,
                 password,
             });
-
-            if (data.success && data.token) {
-                localStorage.setItem(TOKEN_KEY, data.token);
-            }
             return data;
         } catch (error) {
             return handleAxiosError(error);
@@ -92,23 +78,17 @@ export const authService = {
 
     // 3. GET CURRENT SESSION
     getMe: async (): Promise<AuthResponse> => {
-        const token = localStorage.getItem(TOKEN_KEY);
-        if (!token) return { success: false, message: "No token" };
-
         try {
+            // Always call API. Cookie will be sent automatically.
             const { data } = await api.get<AuthResponse>("/auth/me");
             return data;
         } catch (error) {
-            localStorage.removeItem(TOKEN_KEY);
+            // 401/403 means not logged in
             return handleAxiosError(error);
         }
     },
 
     // 4. UPDATE PROFILE
-    // Note: Assuming endpoint is PUT /users/:id or PUT /auth/me. 
-    // Using /users/:id for now as it's standard REST, or likely /auth/profile
-    // We will try generic /users implementation or skip if not critical for "Registration" goal.
-    // For now, I'll map it to a hypothetical endpoint.
     updateProfile: async (id: string, updates: Partial<{ displayName: string; password: string }>): Promise<AuthResponse> => {
         try {
             const { data } = await api.put<AuthResponse>(`/users/${id}`, updates);
@@ -120,7 +100,11 @@ export const authService = {
 
     // 5. LOGOUT
     logout: async (): Promise<void> => {
-        localStorage.removeItem(TOKEN_KEY);
+        try {
+            await api.post("/auth/logout");
+        } catch (error) {
+            console.error("Logout error", error);
+        }
     },
 
     // 6. CHECK EMAIL
@@ -129,10 +113,7 @@ export const authService = {
             const { data } = await api.get(`/auth/check-email?email=${encodeURIComponent(email)}`);
             return data;
         } catch (error) {
-            // If error (e.g. 404/500), assume available to not block, or handle strictly.
-            // Requirement says "prevent... by warning".
-            // Let's return available: true on failure to allow retry, or false to block?
-            // Safer to return something that doesn't crash app.
+            // If error, assume available to not block, or handle strictly.
             return { available: true };
         }
     }
@@ -148,3 +129,4 @@ function handleAxiosError(error: unknown): AuthResponse {
 }
 
 export default authService;
+

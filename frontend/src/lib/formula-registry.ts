@@ -4,62 +4,196 @@ import {
     FormulaVersion,
     FormulaVersionStatus
 } from "../models/Formula";
-import { getOverlayEntries } from "./dev-formula-overlay";
 import {
-    digitGroupingTemplate,
-    staticGroupTemplate,
-    permutation2DTemplate,
-    pipelineRunnerTemplate
-} from "./compute-modules";
-import type { ComputeTemplate } from "./compute-modules";
+    estimateCombination,
+    estimatePermutation,
+    estimateWithRepeats,
+    FORMULA_GUARDRAILS
+} from "./formula-runtime";
+import { getOverlayEntries } from "./dev-formula-overlay";
 
-export { ComputeTemplate };
+export type ComputeTemplate = any; // Placeholder after deletion
 
 const computeTemplates: Record<string, ComputeTemplate> = {
-    [digitGroupingTemplate.key]: digitGroupingTemplate,
-    [staticGroupTemplate.key]: staticGroupTemplate,
-    [permutation2DTemplate.key]: permutation2DTemplate,
-    [pipelineRunnerTemplate.key]: pipelineRunnerTemplate
+    "z-master-universal-v1": {
+        formulaText: "Z-Master Universal Generator (Engine v10: SPIC-IME/ISI).",
+        paramsSpec: {
+            length: { type: "number", required: true, description: "Group length." },
+            allowDoubles: { type: "boolean", required: false, defaultValue: true },
+            sortUnique: { type: "boolean", required: false, defaultValue: false },
+            excludeFront: { type: "string", required: false, defaultValue: "" },
+            excludeBack: { type: "string", required: false, defaultValue: "" }
+        },
+        estimate: ({ digits, params }: { digits: string[]; params: { length: number; allowDoubles?: boolean; sortUnique?: boolean } }) => {
+            const size = params.length;
+            if (params.sortUnique) {
+                if (params.allowDoubles) {
+                    return {
+                        estimatedGroups: estimateWithRepeats(digits.length, size, {
+                            maxN: FORMULA_GUARDRAILS.MAX_N,
+                            maxK: FORMULA_GUARDRAILS.MAX_K,
+                            maxGroupsEstimate: FORMULA_GUARDRAILS.MAX_GROUPS_ESTIMATE
+                        })
+                    };
+                }
+                return {
+                    estimatedGroups: estimateCombination(digits.length, size, {
+                        maxN: FORMULA_GUARDRAILS.MAX_N,
+                        maxK: FORMULA_GUARDRAILS.MAX_K,
+                        maxGroupsEstimate: FORMULA_GUARDRAILS.MAX_GROUPS_ESTIMATE
+                    })
+                };
+            }
+            if (params.allowDoubles) {
+                return {
+                    estimatedGroups: estimateWithRepeats(digits.length, size, {
+                        maxN: FORMULA_GUARDRAILS.MAX_N,
+                        maxK: FORMULA_GUARDRAILS.MAX_K,
+                        maxGroupsEstimate: FORMULA_GUARDRAILS.MAX_GROUPS_ESTIMATE
+                    })
+                };
+            }
+            return {
+                estimatedGroups: estimatePermutation(digits.length, size, {
+                    maxN: FORMULA_GUARDRAILS.MAX_N,
+                    maxK: FORMULA_GUARDRAILS.MAX_K,
+                    maxGroupsEstimate: FORMULA_GUARDRAILS.MAX_GROUPS_ESTIMATE
+                })
+            };
+        },
+        compute: ({
+            digits,
+            params
+        }: {
+            digits: string[];
+            params: {
+                length: number;
+                allowDoubles?: boolean;
+                sortUnique?: boolean;
+                excludeFront?: string;
+                excludeBack?: string;
+            };
+        }) => {
+            const pool = Array.from(new Set(digits));
+            const size = params.length || 2;
+            const isModeC = Boolean(params.sortUnique);
+            const allowDoubles = params.allowDoubles !== false;
+
+            const excludeFrontSet = new Set(
+                (params.excludeFront || "")
+                    .split(",")
+                    .map((entry) => entry.trim())
+                    .filter(Boolean)
+            );
+            const excludeBackSet = new Set(
+                (params.excludeBack || "")
+                    .split(",")
+                    .map((entry) => entry.trim())
+                    .filter(Boolean)
+            );
+
+            const results: string[] = [];
+
+            const combine = (start: number, current: string[]) => {
+                if (current.length === size) {
+                    results.push(current.join(""));
+                    return;
+                }
+                for (let i = start; i < pool.length; i += 1) {
+                    combine(i + 1, [...current, pool[i]]);
+                }
+            };
+
+            const combineWithRepeats = (start: number, current: string[]) => {
+                if (current.length === size) {
+                    results.push(current.join(""));
+                    return;
+                }
+                for (let i = start; i < pool.length; i += 1) {
+                    combineWithRepeats(i, [...current, pool[i]]);
+                }
+            };
+
+            const permute = (current: string[], remaining: string[]) => {
+                if (current.length === size) {
+                    results.push(current.join(""));
+                    return;
+                }
+                for (let i = 0; i < remaining.length; i += 1) {
+                    const next = remaining[i];
+                    const left = remaining.slice(0, i).concat(remaining.slice(i + 1));
+                    permute([...current, next], left);
+                }
+            };
+
+            const permuteWithRepeats = (current: string[]) => {
+                if (current.length === size) {
+                    results.push(current.join(""));
+                    return;
+                }
+                for (let i = 0; i < pool.length; i += 1) {
+                    permuteWithRepeats([...current, pool[i]]);
+                }
+            };
+
+            if (isModeC) {
+                if (allowDoubles) {
+                    combineWithRepeats(0, []);
+                } else {
+                    combine(0, []);
+                }
+            } else if (allowDoubles) {
+                permuteWithRepeats([]);
+            } else {
+                permute([], pool);
+            }
+
+            if (excludeFrontSet.size === 0 && excludeBackSet.size === 0) {
+                return results;
+            }
+
+            return results.filter((item) => {
+                if (excludeFrontSet.size > 0 && excludeFrontSet.has(item[0])) return false;
+                if (excludeBackSet.size > 0 && excludeBackSet.has(item[item.length - 1])) return false;
+                return true;
+            });
+        }
+    }
 };
 
 const BASE_FORMULAS: FormulaEntry[] = [
     {
-        id: "digits-group",
-        displayName: "Digit Grouping",
-        description: "Combination/Permutation grouping with optional repeats",
-        tags: ["dynamic", "combinatorics"],
+        id: "z-master-universal-v1",
+        displayName: "Z-Master: Universal Generator",
+        description: "Universal generator for combinations/permutations with optional exclusions.",
+        tags: ["generator", "universal", "z-master", "base"],
         versions: [
             {
-                formulaId: "digits-group",
+                formulaId: "z-master-universal-v1",
                 version: "1.0.0",
                 status: "active",
-                computeKey: "digits-group",
-                inputSpec: computeTemplates["digits-group"].inputSpec,
-                outputSpec: computeTemplates["digits-group"].outputSpec,
-                guardrails: computeTemplates["digits-group"].guardrails,
-                isLocked: false,
-                changeNote: "Initial release",
-                createdAt: new Date().toISOString()
-            }
-        ]
-    },
-    {
-        id: "static-group",
-        displayName: "Static Group",
-        description: "Static preset groups",
-        tags: ["static", "preset"],
-        versions: [
-            {
-                formulaId: "static-group",
-                version: "1.0.0",
-                status: "active",
-                computeKey: "static-group",
-                inputSpec: computeTemplates["static-group"].inputSpec,
-                outputSpec: computeTemplates["static-group"].outputSpec,
-                guardrails: computeTemplates["static-group"].guardrails,
-                isLocked: false,
-                changeNote: "Initial release",
-                createdAt: new Date().toISOString()
+                isLocked: true,
+                computeKey: "z-master-universal-v1",
+                inputSpec: {
+                    params: {
+                        length: { type: "number", required: true },
+                        allowDoubles: { type: "boolean", required: false },
+                        sortUnique: { type: "boolean", required: false },
+                        excludeFront: { type: "string", required: false },
+                        excludeBack: { type: "string", required: false }
+                    }
+                },
+                outputSpec: {
+                    description: "Generated digit groups.",
+                    contract: "string[]"
+                },
+                guardrails: {
+                    maxN: FORMULA_GUARDRAILS.MAX_N,
+                    maxK: FORMULA_GUARDRAILS.MAX_K,
+                    maxGroupsEstimate: FORMULA_GUARDRAILS.MAX_GROUPS_ESTIMATE
+                },
+                changeNote: "Base executable formula for Z-Master universal generator.",
+                createdAt: "2025-12-28T00:00:00+07:00"
             }
         ]
     }
