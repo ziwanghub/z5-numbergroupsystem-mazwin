@@ -1,14 +1,31 @@
+# ===============================
+# Dependencies
+# ===============================
 node_modules/
+
+# ===============================
+# Environment & Secrets
+# ===============================
 .env
-.DS_Store
+*.pem
+*.key
+
+# ===============================
+# Build / Output
+# ===============================
 dist/
 build/
 coverage/
+
+# ===============================
+# OS / Editor
+# ===============================
+.DS_Store
 .vscode/
 
-# --- Security & System Files ---
-*.pem
-*.key
-.z-mos
-z-mos
-.DS_Store
+# ===============================
+# Z-MOS (Personal Operating System)
+# DO NOT COMMIT – Local only
+# ===============================
+.z-mos/
+z-mos/
