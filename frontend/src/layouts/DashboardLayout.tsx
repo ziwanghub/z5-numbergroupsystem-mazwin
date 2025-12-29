@@ -1,26 +1,22 @@
 import { useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
-import { Terminal, Users, Settings, LogOut, LayoutDashboard, PanelLeftClose, PanelLeftOpen, BookOpen } from "lucide-react";
-import { authService, User } from "../services/authService";
+import { Terminal, Users, Settings, LogOut, LayoutDashboard, PanelLeftClose, PanelLeftOpen, BookOpen, ShieldAlert } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { SmartInput } from "../components/layout/SmartInput";
 
-interface DashboardLayoutProps {
-    user: User | null;
-    onLogout: () => void;
-}
-
-export default function DashboardLayout({ user, onLogout }: DashboardLayoutProps) {
+export default function DashboardLayout() {
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
     const [densityMode, setDensityMode] = useState<"compact" | "comfort">("compact");
     const isDev = import.meta.env.DEV;
     const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+    const isSuperAdmin = user?.role === "SUPER_ADMIN";
     const canAccessFormulaLibrary = isDev || isAdmin;
 
     const handleLogout = async () => {
-        await authService.logout();
-        onLogout();
+        await logout();
         navigate("/login");
     };
 
@@ -83,6 +79,19 @@ export default function DashboardLayout({ user, onLogout }: DashboardLayoutProps
                         {!isLeftCollapsed && (
                             <h3 className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Platform</h3>
                         )}
+
+                        {/* SUPER ADMIN SHORTCUT */}
+                        {isSuperAdmin && (
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 mb-2 border border-amber-500/20 ${isLeftCollapsed ? "px-2" : ""}`}
+                                onClick={() => navigate("/admin")}
+                            >
+                                <ShieldAlert className={`w-4 h-4 ${isLeftCollapsed ? "" : "mr-3"}`} />
+                                {!isLeftCollapsed && "Admin Console"}
+                            </Button>
+                        )}
+
                         <Button variant="ghost" className={`w-full justify-start text-slate-300 hover:text-white hover:bg-slate-800 ${isLeftCollapsed ? "px-2" : ""}`} onClick={() => navigate("/")}>
                             <LayoutDashboard className={`w-4 h-4 ${isLeftCollapsed ? "" : "mr-3"}`} />
                             {!isLeftCollapsed && "Workstation"}

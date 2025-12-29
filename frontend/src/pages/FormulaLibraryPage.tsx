@@ -72,7 +72,6 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 import { RecipeManager } from "../lib/recipe-manager";
-import RecipeBuilder from "./RecipeBuilderPage";
 
 // ... existing imports
 
@@ -288,6 +287,7 @@ export const FormulaRegistryView = () => {
 }
 
 import { SaveRecipeModal } from "../components/recipes/SaveRecipeModal";
+import { MyRecipesView } from "../components/MyRecipesView";
 
 // ...
 
@@ -998,7 +998,7 @@ const ArchiveForm = ({
 
 // Wrapper Component with Tabs
 export default function FormulaLibraryPage() {
-    const [activeTab, setActiveTab] = useState<"registry" | "builder">("registry");
+    const [activeTab, setActiveTab] = useState<"registry" | "my-recipes">("registry");
 
     return (
         <div className="h-full flex flex-col bg-[#0f172a]">
@@ -1020,23 +1020,24 @@ export default function FormulaLibraryPage() {
                 </button>
 
                 <button
-                    onClick={() => setActiveTab("builder")}
-                    className={`text-sm font-medium px-4 py-1.5 rounded-full transition-all flex items-center gap-2 ${activeTab === "builder"
-                        ? "bg-blue-600/10 text-blue-400 shadow-sm ring-1 ring-blue-600/30"
-                        : "text-slate-400 hover:text-blue-300 hover:bg-slate-800/50"
+                    onClick={() => setActiveTab("my-recipes")}
+                    className={`text-sm font-medium px-4 py-1.5 rounded-full transition-all flex items-center gap-2 ${activeTab === "my-recipes"
+                        ? "bg-pink-600/10 text-pink-400 shadow-sm ring-1 ring-pink-600/30"
+                        : "text-slate-400 hover:text-pink-300 hover:bg-slate-800/50"
                         }`}
                 >
-                    Recipe Studio
-                    <span className="text-[10px] bg-blue-600 text-white px-1.5 rounded-full">New</span>
+                    My Recipes
                 </button>
+
+
             </div>
 
             {/* TAB CONTENT */}
-            <div className="flex-1 overflow-hidden relative">
+            <div className="flex-1 overflow-hidden relative p-6">
                 {activeTab === "registry" ? (
                     <FormulaRegistryView />
                 ) : (
-                    <RecipeBuilder />
+                    <MyRecipesView />
                 )}
             </div>
         </div>

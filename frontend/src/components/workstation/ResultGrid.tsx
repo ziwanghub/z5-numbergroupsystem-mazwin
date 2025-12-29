@@ -1,11 +1,13 @@
+
 import { useEffect, useRef, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { CalculationResult } from "../../models/Calculation";
 import { Button } from "../ui/button";
-import { Copy, Trash2 } from "lucide-react";
 import { useCalculationContext } from "../../context/CalculationContext";
 import { toast } from "sonner";
 import { grantConsent, hasConsent } from "../../lib/formula-consent";
+import ReportIssueModal from "../tickets/ReportIssueModal";
+import ReviewModal from "../reviews/ReviewModal"; // [NEW]
+import { ResultCard } from "./ResultCard"; // [NEW] Import extracted component
 
 interface ResultGridProps {
     results: CalculationResult[];
@@ -13,26 +15,73 @@ interface ResultGridProps {
 }
 
 export function ResultGrid({ results, densityMode }: ResultGridProps) {
-    const { removeWidget, widgets, isReady, setLastCopy } = useCalculationContext();
+    const { removeWidget, widgets, isReady, setLastCopy, input } = useCalculationContext();
     const [highlightedPanelId, setHighlightedPanelId] = useState<string | null>(null);
     const [pendingCopy, setPendingCopy] = useState<{
         panelId: string;
         panelName: string;
         data: string[];
         consentKey: string;
+        capabilities?: any; // Avoiding strict type for legacy compat
     } | null>(null);
+
+    // Modal States
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [snapshotData, setSnapshotData] = useState<any>(null);
+
+    // [NEW] Review State
+    const [reviewModalOpen, setReviewModalOpen] = useState(false);
+    const [reviewContext, setReviewContext] = useState<{ recipeId: string; recipeName: string } | null>(null);
+
     const highlightTimeoutRef = useRef<number | null>(null);
     const archivedNoticeRef = useRef<Set<string>>(new Set());
 
-    const handleCopy = async (
-        panelId: string,
-        panelName: string,
-        data: string[],
-        consentKey: string,
-        capabilities?: CalculationResult["capabilities"],
-        consentGranted?: boolean
+    // Report Handler
+    const handleReport = (item: any) => {
+        setSnapshotData({
+            title: `Issue with: ${item.title}`, // Auto-fill title with recipe name
+            inputs: { value: input }, // Current global input
+            results: item.data, // This card's results
+            formulaId: item.formulaId || 'unknown',
+            formulaVersion: item.formulaVersion,
+            timestamp: new Date().toISOString()
+        });
+        setReportModalOpen(true);
+    };
+
+    // [NEW] Review Handler
+    const handleRate = (item: any) => {
+        setReviewContext({
+            recipeId: item.formulaId || item.id, // Fallback to ID if no formulaId
+            recipeName: item.title
+        });
+        setReviewModalOpen(true);
+    };
+
+    // Centralized Copy Logic
+    const performCopy = async (
+        item: any,
+        consentGranted: boolean = false
     ) => {
-        const canCopy = capabilities?.canCopy || (capabilities?.requiresConsent && consentGranted);
+        const { id, title, data, formulaId, formulaVersion, capabilities } = item;
+        const consentKey = formulaId && formulaVersion ? `${formulaId}:${formulaVersion}:${id}` : "";
+
+        // Consent Check
+        const effectiveConsent = consentGranted || (consentKey ? hasConsent(consentKey) : false);
+
+        if (capabilities?.requiresConsent && consentKey && !effectiveConsent) {
+            setPendingCopy({
+                panelId: id,
+                panelName: title,
+                data: data,
+                consentKey,
+                capabilities
+            });
+            return;
+        }
+
+        const canCopy = capabilities?.canCopy || (capabilities?.requiresConsent && effectiveConsent) || !capabilities; // Default allow if active
+
         if (!isReady || data.length === 0 || !canCopy) {
             toast.warning("Blocked", {
                 description: capabilities?.message || "Result not ready for copy.",
@@ -46,17 +95,17 @@ export function ResultGrid({ results, densityMode }: ResultGridProps) {
             await navigator.clipboard.writeText(payload);
 
             setLastCopy({
-                panelId,
-                panelName,
+                panelId: id,
+                panelName: title,
                 copiedAt: Date.now()
             });
 
             toast.success("✓ Copied", {
-                description: panelName,
+                description: title,
                 id: "copy-feedback"
             });
 
-            setHighlightedPanelId(panelId);
+            setHighlightedPanelId(id);
             if (highlightTimeoutRef.current) {
                 window.clearTimeout(highlightTimeoutRef.current);
             }
@@ -73,12 +122,6 @@ export function ResultGrid({ results, densityMode }: ResultGridProps) {
     };
 
     const panelGap = densityMode === "compact" ? "gap-3" : "gap-5";
-    const headerPadding = densityMode === "compact" ? "pb-1" : "pb-3";
-    const contentPadding = densityMode === "compact" ? "p-3" : "p-5";
-    const copyButtonClasses = densityMode === "compact"
-        ? "h-5 w-5 text-slate-500 hover:text-slate-200 hover:bg-slate-800/60 opacity-0 group-hover:opacity-100 transition-opacity"
-        : "h-7 w-7 text-slate-300 hover:text-white hover:bg-slate-800/80 opacity-100 transition-opacity";
-    const copyIconSize = densityMode === "compact" ? "w-3 h-3" : "w-4 h-4";
 
     useEffect(() => {
         results.forEach(item => {
@@ -111,105 +154,23 @@ export function ResultGrid({ results, densityMode }: ResultGridProps) {
                     <p className="text-xs">Use the Command Deck to add widgets.</p>
                 </div>
             )}
-            {displayItems.map((item) => (
-                <Card
+
+            {/* Render Cards using Extracted Component */}
+            {displayItems.map((item: any) => (
+                <ResultCard
                     key={item.id}
-                    className={`bg-slate-900 border-slate-800 text-slate-200 shadow-sm hover:border-slate-700 transition-colors group relative ${highlightedPanelId === item.id ? "ring-2 ring-emerald-400/60" : ""}`}
-                    onClick={(event) => {
-                        if (!(event.ctrlKey || event.metaKey)) return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        const consentKey = item.formulaId && item.formulaVersion ? `${item.formulaId}:${item.formulaVersion}:${item.id}` : "";
-                        const consentGranted = consentKey ? hasConsent(consentKey) : false;
-                        if (item.capabilities?.requiresConsent && consentKey && !consentGranted) {
-                            setPendingCopy({
-                                panelId: item.id,
-                                panelName: item.title,
-                                data: item.data,
-                                consentKey
-                            });
-                            return;
-                        }
-                        void handleCopy(item.id, item.title, item.data, consentKey, item.capabilities, consentGranted);
-                    }}
-                >
-                    <CardHeader className={`${headerPadding} flex flex-row items-center justify-between space-y-0`}>
-                        <CardTitle className="text-sm font-medium text-blue-400 uppercase tracking-wider">
-                            {item.title}
-                        </CardTitle>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
-                                {item.total} Matches
-                            </span>
-                            {item.capabilities?.message && (
-                                <span
-                                    className={`text-[10px] px-2 py-0.5 rounded-full ${item.capabilities.severity === "block"
-                                            ? "bg-red-900/40 text-red-300"
-                                            : item.capabilities.severity === "warn"
-                                                ? "bg-amber-900/40 text-amber-300"
-                                                : "bg-slate-800 text-slate-400"
-                                        }`}
-                                >
-                                    {item.capabilities.message}
-                                </span>
-                            )}
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className={copyButtonClasses}
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    const consentKey = item.formulaId && item.formulaVersion ? `${item.formulaId}:${item.formulaVersion}:${item.id}` : "";
-                                    const consentGranted = consentKey ? hasConsent(consentKey) : false;
-                                    if (item.capabilities?.requiresConsent && consentKey && !consentGranted) {
-                                        setPendingCopy({
-                                            panelId: item.id,
-                                            panelName: item.title,
-                                            data: item.data,
-                                            consentKey
-                                        });
-                                        return;
-                                    }
-                                    void handleCopy(item.id, item.title, item.data, consentKey, item.capabilities, consentGranted);
-                                }}
-                                title="Copy Result"
-                            >
-                                <Copy className={copyIconSize} />
-                            </Button>
-                            {/* Delete Button */}
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-slate-600 hover:text-red-400 hover:bg-red-950/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    removeWidget(item.id);
-                                }}
-                                title="Remove Widget"
-                            >
-                                <Trash2 className="w-3 h-3" />
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className={`bg-slate-950/50 rounded-md border border-slate-800/50 ${contentPadding} min-h-[100px] max-h-[200px] overflow-y-auto ${item.capabilities?.isBlocked ? "opacity-60" : ""}`}>
-                            {item.capabilities?.isBlocked ? (
-                                <p className="text-xs text-slate-500 italic text-center py-4">
-                                    Archived — panel disabled.
-                                </p>
-                            ) : item.data.length > 0 ? (
-                                <p className="font-mono text-sm leading-relaxed text-slate-300 break-all">
-                                    {item.data.join(", ")}
-                                </p>
-                            ) : (
-                                <p className="text-xs text-slate-600 italic text-center py-4">
-                                    {results.length > 0 ? "No matches found." : "Waiting for input..."}
-                                </p>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
+                    item={item}
+                    densityMode={densityMode}
+                    highlightedPanelId={highlightedPanelId}
+                    isReady={isReady || results.length === 0} // Allow interaction even if waiting
+                    onCopy={(item, consent) => performCopy(item, consent)}
+                    onRemove={removeWidget}
+                    onReport={handleReport}
+                    onRate={handleRate} // [NEW]
+                />
             ))}
+
+            {/* Consent Modal */}
             {pendingCopy && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
                     <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-xl p-5">
@@ -225,20 +186,15 @@ export function ResultGrid({ results, densityMode }: ResultGridProps) {
                                 className="bg-amber-500 text-slate-900 hover:bg-amber-400"
                                 onClick={() => {
                                     grantConsent(pendingCopy.consentKey);
-                                    void handleCopy(
-                                        pendingCopy.panelId,
-                                        pendingCopy.panelName,
-                                        pendingCopy.data,
-                                        pendingCopy.consentKey,
-                                        {
-                                            canCompute: true,
-                                            canCopy: false,
-                                            requiresConsent: true,
-                                            isBlocked: false,
-                                            severity: "info"
-                                        },
-                                        true
-                                    );
+                                    // Retry copy with explicit consent
+                                    performCopy({
+                                        id: pendingCopy.panelId,
+                                        title: pendingCopy.panelName,
+                                        data: pendingCopy.data,
+                                        formulaId: pendingCopy.consentKey.split(':')[0],
+                                        formulaVersion: pendingCopy.consentKey.split(':')[1],
+                                        capabilities: pendingCopy.capabilities
+                                    }, true);
                                     setPendingCopy(null);
                                 }}
                             >
@@ -248,6 +204,20 @@ export function ResultGrid({ results, densityMode }: ResultGridProps) {
                     </div>
                 </div>
             )}
+
+            {/* Report Modal */}
+            <ReportIssueModal
+                isOpen={reportModalOpen}
+                onClose={() => setReportModalOpen(false)}
+                snapshot={snapshotData}
+            />
+
+            {/* [NEW] Review Modal */}
+            <ReviewModal
+                isOpen={reviewModalOpen}
+                onClose={() => setReviewModalOpen(false)}
+                context={reviewContext}
+            />
         </div>
     );
 }

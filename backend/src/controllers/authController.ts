@@ -33,7 +33,14 @@ export const register = async (req: Request, res: Response) => {
         const newUser = new User({
             username,
             password: hashedPassword,
+            role: 'USER', // Default role
+            // [NEW] Tenancy Logic: Self-Owned by default (New Tenant)
+            // ownerId & parentId will be set to self._id after instantiation because _id exists then
         });
+
+        // Mongoose automatically generates _id on instantiation
+        newUser.ownerId = newUser._id;
+        newUser.parentId = newUser._id;
 
         await newUser.save();
 
@@ -142,8 +149,28 @@ export const login = async (req: Request, res: Response) => {
             return;
         }
 
+        // [SECURITY] Check for Account Suspension
+        if (user.subscription && user.subscription.status === 'SUSPENDED') {
+            await logEvent(req, {
+                event: 'AUTH_LOGIN_FAIL',
+                level: 'WARNING',
+                userId: user._id,
+                metadata: { reason: 'Account Suspended' }
+            });
+            res.status(403).json({
+                success: false,
+                error: 'AUTH_ACCOUNT_SUSPENDED',
+                message: 'Access Denied: Your account has been suspended. Contact support.'
+            });
+            return;
+        }
+
         const token = jwt.sign(
-            { id: user._id, role: user.role },
+            {
+                id: user._id,
+                role: user.role,
+                ownerId: user.ownerId // [NEW] Tenancy in Token
+            },
             process.env.JWT_SECRET as string,
             { expiresIn: '24h' }
         );

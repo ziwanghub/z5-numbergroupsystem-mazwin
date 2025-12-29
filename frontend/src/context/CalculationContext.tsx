@@ -18,6 +18,7 @@ interface CalculationState {
     isCalculating: boolean;
     config: CalculationConfig;
     widgets: WidgetConfig[]; // Dynamic Widgets
+    activeFormulaId: string | null; // Track active formula context
 }
 
 // Actions
@@ -27,7 +28,8 @@ type Action =
     | { type: 'ADD_WIDGET'; payload: Omit<WidgetConfig, 'id'> }
     | { type: 'REMOVE_WIDGET'; payload: string }
     | { type: 'RESET_LAYOUT' }
-    | { type: 'CALCULATE_RESULTS'; payload: string };
+    | { type: 'CALCULATE_RESULTS'; payload: string }
+    | { type: 'SET_ACTIVE_FORMULA'; payload: string };
 
 // Context Interface
 interface CalculationContextType extends CalculationState {
@@ -118,6 +120,7 @@ const INITIAL_STATE: CalculationState = {
     isCalculating: false,
     config: { maxLength: 10 },
     widgets: DEFAULT_WIDGETS,
+    activeFormulaId: null
 };
 
 // --- Reducer ---
@@ -128,6 +131,9 @@ const calculationReducer = (state: CalculationState, action: Action): Calculatio
 
         case 'SET_CALCULATING':
             return { ...state, isCalculating: action.payload };
+
+        case 'SET_ACTIVE_FORMULA':
+            return { ...state, activeFormulaId: action.payload };
 
         case 'CALCULATE_RESULTS': {
             const inputVal = action.payload;
@@ -281,6 +287,8 @@ export function CalculationProvider({ children }: { children: ReactNode }) {
             predict(state.input);
         }
     }, [state.widgets.length, predict, state.input]);
+
+    const setActiveFormula = (id: string) => dispatch({ type: 'SET_ACTIVE_FORMULA', payload: id });
 
     return (
         <CalculationContext.Provider value={{

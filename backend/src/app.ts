@@ -6,6 +6,9 @@ import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes';
 import formulaRoutes from './routes/formulaRoutes';
 import recipeRoutes from './routes/recipeRoutes';
+import adminRoutes from './routes/adminRoutes';
+import ticketRoutes from './routes/ticketRoutes';
+import reviewRoutes from './routes/reviewRoutes'; // [NEW]
 
 const app = express();
 

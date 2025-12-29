@@ -25,6 +25,7 @@ export default function authMiddleware(req: Request, res: Response, next: NextFu
         req.user = {
             id: payload.id,
             role: payload.role,
+            ownerId: payload.ownerId // [NEW] Read Tenancy
         };
 
         next();

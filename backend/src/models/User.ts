@@ -18,6 +18,11 @@ export interface IUser extends Document {
     username: string;
     password?: string;
     role: string;
+    // [NEW] Multi-Tenant Fields
+    ownerId?: mongoose.Types.ObjectId; // Optional for now until migration
+    parentId?: mongoose.Types.ObjectId;
+    permissions?: string[];
+
     subscription: {
         plan: string;
         status: string;
@@ -47,6 +52,21 @@ const UserSchema: Schema = new Schema(
             default: ROLES.USER,
             uppercase: true,
             trim: true
+        },
+        // [NEW] Multi-Tenant Ownership
+        ownerId: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+            default: null // Will be populated via migration or registration
+        },
+        parentId: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+            default: null
+        },
+        permissions: {
+            type: [String],
+            default: []
         },
         subscription: {
             plan: {

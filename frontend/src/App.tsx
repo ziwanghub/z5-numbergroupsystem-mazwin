@@ -1,43 +1,26 @@
-import React, { useState, useEffect, Suspense, lazy } from "react";
+import React, { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardLayout from "./layouts/DashboardLayout";
 import WorkstationPage from "./pages/WorkstationPage";
 import ProfilePage from "./pages/ProfilePage";
-import { authService, User } from "./services/authService";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import RoleRoute from "./components/RoleRoute"; // [NEW]
 import { CalculationProvider } from "./context/CalculationContext";
 import { Toaster } from "sonner";
 
 const FormulaLibraryPage = lazy(() => import("./pages/FormulaLibraryPage"));
 const RecipeBuilderPage = lazy(() => import("./pages/RecipeBuilderPage"));
 
-export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthChecked, setIsAuthChecked] = useState(false);
+// Super Admin Feature (Lazy Loading)
+const SuperAdminLayout = React.lazy(() => import('./layouts/SuperAdminLayout'));
+const AdminManagementPage = React.lazy(() => import('./pages/admin/AdminManagementPage'));
+const TicketInboxPage = lazy(() => import("./pages/admin/TicketInboxPage")); // [NEW]
 
-  useEffect(() => {
-    // 1. Force Dark Mode Class
-    document.documentElement.classList.add("dark");
-
-    // 2. Check Session
-    const checkSession = async () => {
-      try {
-        const response = await authService.getMe();
-        if (response.success && response.user) {
-          setUser(response.user);
-        }
-      } catch (error) {
-        // Session invalid or expired, user remains null
-        console.log("No active session");
-      } finally {
-        setIsLoading(false);
-        setIsAuthChecked(true);
-      }
-    };
-    checkSession();
-  }, []);
+// Inner App Component to consume AuthContext
+const AppRoutes = () => {
+  const { user, isLoading, login } = useAuth();
 
   if (isLoading) {
     return (
@@ -50,66 +33,88 @@ export default function App() {
     );
   }
 
-  // Protected Route Wrapper
-  const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
-    if (!user) {
-      return <Navigate to="/login" replace />;
-    }
-    return children;
-  };
   const isDev = import.meta.env.DEV;
-  const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
-  const canAccessFormulaLibrary = isDev || isAdmin;
+  // Admin Check helper, though specific routes use RoleRoute
+  const canAccessFormulaLibrary = isDev || (user && ['ADMIN', 'SUPER_ADMIN'].includes(user.role));
+
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={user ? <Navigate to="/" replace /> : <LoginPage onLogin={login} />}
+      />
+      <Route
+        path="/register"
+        element={user ? <Navigate to="/" replace /> : <RegisterPage />}
+      />
+
+      {/* ========================================================= */}
+      {/* 👑 SUPER ADMIN ZONE (Protected & Lazy Loaded) */}
+      {/* ========================================================= */}
+      <Route
+        path="/admin"
+        element={
+          <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-amber-500">Loading Command Center...</div>}>
+            <RoleRoute allowedRoles={['SUPER_ADMIN']}>
+              <SuperAdminLayout />
+            </RoleRoute>
+          </Suspense>
+        }
+      >
+        <Route index element={<Navigate to="/admin/tenants" replace />} /> {/* Default to tenants for now */}
+        <Route path="tenants" element={<AdminManagementPage />} />
+        <Route path="tickets" element={<TicketInboxPage />} /> {/* [NEW] */}
+        <Route path="system" element={<div className="text-white p-8">System Health (Coming Soon)</div>} />
+        <Route path="settings" element={<div className="text-white p-8">Global Config (Coming Soon)</div>} />
+      </Route>
+
+      {/* ========================================================= */}
+      {/* 👤 USER WORKSTATION (Standard App) */}
+      {/* ========================================================= */}
+      <Route
+        path="/"
+        element={
+          <RoleRoute allowedRoles={['USER', 'ADMIN', 'SUPER_ADMIN', 'AUDITOR']}>
+            <CalculationProvider>
+              {/* Note: DashboardLayout now uses useAuth internally */}
+              <DashboardLayout />
+            </CalculationProvider>
+          </RoleRoute>
+        }
+      >
+        <Route index element={<WorkstationPage />} />
+        <Route
+          path="formula-library"
+          element={
+            canAccessFormulaLibrary ? (
+              <Suspense fallback={<div>Loading...</div>}>
+                <FormulaLibraryPage />
+              </Suspense>
+            ) : <Navigate to="/" replace />
+          }
+        />
+        <Route path="recipes" element={
+          canAccessFormulaLibrary ? <Suspense fallback={<div>Loading...</div>}><RecipeBuilderPage /></Suspense> : <Navigate to="/" replace />
+        } />
+        <Route path="profile" element={<ProfilePage />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+};
+
+export default function App() {
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
 
   return (
     <BrowserRouter>
       <Toaster position="top-right" theme="dark" />
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/" replace /> : <LoginPage onLogin={setUser} />}
-        />
-        <Route
-          path="/register"
-          element={user ? <Navigate to="/" replace /> : <RegisterPage />}
-        />
-
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              {/* Context Provider wraps the layout so Header and Pages share state */}
-              <CalculationProvider>
-                <DashboardLayout user={user} onLogout={() => setUser(null)} />
-              </CalculationProvider>
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<WorkstationPage />} />
-          <Route
-            path="formula-library"
-            element={
-              canAccessFormulaLibrary ? (
-                <Suspense
-                  fallback={
-                    <div className="text-slate-500 text-sm">Loading Formula Library...</div>
-                  }
-                >
-                  <FormulaLibraryPage />
-                </Suspense>
-              ) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-          <Route path="recipes" element={
-            canAccessFormulaLibrary ? <Suspense fallback={<div>Loading...</div>}><RecipeBuilderPage /></Suspense> : <Navigate to="/" replace />
-          } />
-          <Route path="profile" element={<ProfilePage />} />
-        </Route>
-
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }
