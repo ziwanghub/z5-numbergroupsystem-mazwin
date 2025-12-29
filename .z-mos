@@ -1,0 +1,9 @@
+{
+  "last_sync": "2025-12-27",
+  "status": "STABLE",
+  "configurations": {
+    "frontend_api_url": "http://72.60.237.18/api/v1",
+    "backend_cors_origin": "http://localhost:5173",
+    "auth_mode": "HYBRID_VPS"
+  }
+}

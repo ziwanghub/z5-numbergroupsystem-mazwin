@@ -1,9 +1,9 @@
 import dotenv from 'dotenv';
-dotenv.config({
-    path: process.env.NODE_ENV === 'production'
-        ? '.env'
-        : '.env.local'
-});
+const envPath = process.env.NODE_ENV === 'production'
+    ? '.env'
+    : (require('fs').existsSync('.env.local') ? '.env.local' : '.env');
+
+dotenv.config({ path: envPath });
 
 import app from './app';
 import connectDB from './config/db';
@@ -11,6 +11,7 @@ import connectDB from './config/db';
 // ✅ FAIL-FAST CONFIG GUARD
 if (!process.env.JWT_SECRET) {
     console.error('FATAL: JWT_SECRET is not defined in .env');
+    process.exit(1);
 }
 
 // ============================================
